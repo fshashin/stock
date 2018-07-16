@@ -170,10 +170,15 @@ def values__price_growth_ratio(h, window_size = 365, avg_period = 365):
 #
 # @param[in,out] history -- dictionary Symbol -> Price History DataFrame. See function load_history(history_dir)
 # @param[in] windows     -- list windows sizes in years. Default: [1,2,3,4,5]
-def append_price_grouth_column(history, windows = range(1,6)):
-	for (symbol, h) in history.items():
-		for years in windows:			
-			h['price-growth-%iy'%years] = values__price_growth_ratio(h, window_size = 365 * years, avg_period = 365)
+# If windows list is empty then 'price-growth' column for all history will be added.
+def append_price_grouth_column(history, windows = range(1,6)):	
+	if windows:
+		for (symbol, h) in history.items():
+			for years in windows:
+				h['price-growth-%iy'%years] = values__price_growth_ratio(h, window_size = int(365 * years), avg_period = 365)
+	else:
+		for (symbol, h) in history.items():
+			h['price-growth'] = h['price-ratio'][-1] / h['price-ratio'][0]
 
 
 #-------------------------------------------------------------------------------
@@ -206,5 +211,27 @@ def prepare_history_abs_period(history, since,  to):
 		if (hp.index[0] - since).days <= 31:
 			res[symbol] = hp
 	return res
-	
+
+#-------------------------------------------------------------------------------
+
+## Compres 'drop-period' column values to list of triplets (begin_i, end_i, in_drop)
+# and returns this list.
+# begin_i - first period index.
+# last_i - last period index plus one.
+# All entries in range [begin_i, last_i) have 'drop-period' value equal 0 or less 0.
+# in_drop - equals ('drop-period' < 0) for target period.
+#
+# @param[in] h -- prices history DataFrame. See function common.load_history_dataframe(file_path)
+def drop_periods(h):
+	in_drop = h['drop-period'] > 0
+	drop_intervals = []
+	last_i = 0
+	for i in range(1, len(in_drop)):
+		it_is_last_i = i == len(in_drop)-1
+		if in_drop[last_i] != in_drop[i]:
+			drop_intervals.append((last_i, i, in_drop[last_i]))
+			last_i = i
+	drop_intervals.append((last_i, len(h), in_drop[last_i]))
+	return drop_intervals 
+
 ################################################################################
