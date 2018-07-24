@@ -181,6 +181,31 @@ def append_price_grouth_column(history, windows = range(1,6)):
 			h['price-growth'] = h['price-ratio'][-1] / h['price-ratio'][0]
 
 
+## Returns list of minimal price ratio values in current price drop period 
+# for specified prices history. Price drop period for current date is number 
+# of days passed since last price maximum.
+#
+# @param[in] h -- prices history DataFrame. See function load_history_dataframe(file_path)
+def values__drop_min(h):
+	price_ratio = h['price-ratio']
+	price_dorp = h['price-drop']
+	dm = [price_ratio[0]]
+	for date_n in range(1, len(h)):
+		if price_dorp[date_n] == 1.:
+			dm.append(price_ratio[date_n])
+		else:
+			dm.append(min(dm[-1], price_ratio[date_n]))
+	return dm
+
+## Append 'drop-min' column to all symbols history. 
+# See function values__local_min.
+#
+# @param[in,out] history -- dictionary Symbol -> Price History DataFrame. See function load_history(history_dir)
+def append_drop_min_column(history):	
+	for (symbol, h) in history.items():
+		h['drop-min'] = values__drop_min(h)
+
+
 #-------------------------------------------------------------------------------
 
 
@@ -232,6 +257,35 @@ def drop_periods(h):
 			drop_intervals.append((last_i, i, in_drop[last_i]))
 			last_i = i
 	drop_intervals.append((last_i, len(h), in_drop[last_i]))
-	return drop_intervals 
+	return drop_intervals
+
+#-------------------------------------------------------------------------------
+
+def periods(h):
+	ps = drop_periods(h)
+	price_ratio = h['price-ratio']	
+	data = {'begin': [], 'end': [], 'type': [], 'extremum': [], 'extremum-date': []}
+	for (begin_i, end_i, in_drop) in ps:
+		price_ratio_slice = price_ratio.iloc[begin_i:end_i]
+		extremum_date = price_ratio_slice.idxmin() if in_drop else price_ratio_slice.idxmax()
+		extremum = price_ratio.loc[extremum_date]
+
+		if not in_drop and len(data['extremum-date']):
+			data['begin'].append(data['extremum-date'][-1])
+			data['end'].append(h.index[begin_i-1])
+			data['type'].append('growth')
+			data['extremum'].append(extremum)
+			data['extremum-date'].append(extremum_date)
+
+		data['begin'].append(h.index[begin_i])
+		if in_drop:
+			data['end'].append(extremum_date)
+		else:
+			data['end'].append(h.index[end_i-1])
+		data['type'].append('drop' if in_drop else 'takeoff')
+		data['extremum'].append(extremum)
+		data['extremum-date'].append(extremum_date)
+
+	return pd.DataFrame(data = data)
 
 ################################################################################

@@ -37,7 +37,10 @@ def draw_column(history, symbol, company, column = 'price-ratio', period = None,
 	x_locs = np.arange(index_size - 1, -1, -12)[::-1]
 	plt.xticks(x_locs, h.index.take(x_locs).map(lambda x: x.strftime('%Y-%m-%d')), rotation=90)
 	title = '{} ({})'.format(company, symbol)
-	
+
+	if 'periods' in add:
+		draw_periods(h, p, ax, add)
+
 	if 'drop-periods' in add:
 		periods = common.drop_periods(h)
 		ylim = ax.get_ylim()
@@ -82,4 +85,31 @@ def draw_column(history, symbol, company, column = 'price-ratio', period = None,
 	
 	plt.show()
 
+#-------------------------------------------------------------------------------
+
+def draw_periods(h, picture, ax, add):
+	periods = common.periods(h)
+	ylim = ax.get_ylim()
+	label_y_shift_step = 0
+	height = ax.get_ylim()[1] - ax.get_ylim()[0]
+	label_y_shift = height / 25
+	for index, period in periods.iterrows():
+		begin_i = h.index.get_loc(period['begin'])
+		if period['type'] == 'growth':
+			begin_i += 1
+		end_i = h.index.get_loc(period['end']) + 1		
+		color = 'red' if period['type'] == 'drop' else 'green'
+		alpha = 0.1 if period['type'] in ['drop', 'growth'] else 0.175
+		start_x = begin_i-1
+		width = end_i - begin_i
+		picture.bar(start_x, ax.get_ylim()[1], width, 0, align='edge', color=color, alpha=alpha)
+		ax.set_ylim(ylim)
+		
+		extremum_i = h.index.get_loc(period['extremum-date'])
+		picture.axes.axvline(extremum_i, color=color, linewidth=0.5)
+		if 'periods-labels' in add:
+			text_y = (ax.get_ylim()[0] + ax.get_ylim()[1])/2. + label_y_shift  * (label_y_shift_step % 3)
+			picture.text(start_x, text_y, '%i'%(end_i - begin_i))
+			label_y_shift_step += 1
+		
 ################################################################################
